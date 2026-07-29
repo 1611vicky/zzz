@@ -136,8 +136,17 @@ input[type=file]{position:absolute;top:-1000px;left:-1000px;opacity:0}
 <!-- hidden file input -->
 <input type="file" id="fu" accept="image/*" multiple onchange="G.onFiles(this)">
 
+<script src="tesseract.min.js"></script>
+<script src="chart.min.js"></script>
 <script>
 'use strict';
+/* Tesseract worker + lang path (local files, no CDN needed) */
+const TESS_OPTS = {
+  workerPath: 'worker.min.js',
+  langPath: 'lang-data',
+  corePath: 'tesseract.min.js',
+  logger: ()=>{}
+};
 // ── CATEGORIES ──────────────────────────────────
 const CAT = {
   food:{n:'餐饮',e:'🍔',c:'#FF6B6B'},
@@ -207,13 +216,99 @@ const G = {
   curTab: 'today',
   listMonth: new Date(),
   statsPeriod: 'thisMonth',
-  draft: [],   // [{amount, merchant, date, source, category, img}]
+  draft: [],
+  ocrOk: false,
+  ocrWorker: null,
 
   async start() {
     try { await DB.open(); } catch(e) { console.error(e); }
     try { this.exps = await DB.all(); } catch(e) { this.exps = []; }
     this.renderToday();
     document.getElementById('fabBtn').onclick = () => this.openAdd();
+    // Init OCR in background (non-blocking)
+    this.initOCR();
+  },
+
+  async initOCR() {
+    try {
+      if(typeof Tesseract === 'undefined') { this.ocrOk=false; return; }
+      this.ocrWorker = await Tesseract.createWorker('chi_sim+eng', 1, {
+        workerPath: 'worker.min.js',
+        langPath: 'lang-data',
+        logger: ()=>{}
+      });
+      this.ocrOk = true;
+      console.log('OCR ready');
+    } catch(e) {
+      console.warn('OCR failed:', e);
+      this.ocrOk = false;
+    }
+  },
+
+  /* Preprocess image: grayscale + contrast boost → better OCR */
+  preproc(img) {
+    const c = document.createElement('canvas');
+    const scale = 1200 / img.width;
+    c.width = 1200; c.height = Math.floor(img.height * scale);
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const d = ctx.getImageData(0, 0, c.width, c.height), p = d.data;
+    for(let i=0; i<p.length; i+=4) {
+      const g = p[i]*.299 + p[i+1]*.587 + p[i+2]*.114;
+      const v = Math.max(0, Math.min(255, (g-128)*2.2+128));
+      p[i]=p[i+1]=p[i+2]=v;
+    }
+    ctx.putImageData(d, 0, 0);
+    return c;
+  },
+
+  /* Parse OCR text → structured expense */
+  parseOCR(text) {
+    const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+    const full = lines.join(' ');
+    // Source
+    let source = 'other';
+    if(full.includes('微信')||full.includes('WeChat')) source='wechat';
+    else if(full.includes('支付宝')||full.includes('Alipay')) source='alipay';
+    else if(full.includes('Apple')) source='applePay';
+    // Amount
+    let amount = null;
+    for(const l of lines) {
+      for(const p of [/¥\s*(\d+\.?\d{0,2})/,/￥\s*(\d+\.?\d{0,2})/,
+        /(?:实付|付款|支付|消费|扣款|合计)[金额]?[：:\s]*¥?\s*(\d+\.?\d{0,2})/,
+        /-\s*¥\s*(\d+\.?\d{0,2})/]) {
+        const m=l.match(p); if(m){const v=parseFloat(m[1]);if(v>0&&v<100000){amount=v;break;}}
+      }
+      if(amount) break;
+    }
+    if(!amount) {
+      let mx=0;
+      for(const l of lines){const ms=l.match(/(\d+\.\d{2})/g);if(ms)for(const m of ms){const v=parseFloat(m);if(v>0&&v<100000&&v>mx)mx=v;}}
+      amount=mx||null;
+    }
+    // Merchant
+    let merchant = '';
+    for(const l of lines) {
+      for(const k of ['收款方','商户','商家','店铺','付款给','支付给','对方','交易对方']) {
+        if(l.includes(k)){const p=l.split(/[：:]/);if(p.length>1){const n=p[p.length-1].trim();if(n.length>=2&&n.length<=40){merchant=n;break;}}}
+      }
+      if(merchant) break;
+    }
+    if(!merchant) {
+      for(const l of lines) {
+        if(/^[¥￥]/.test(l)) continue;
+        if(/^(支付|微信|支付宝|付款|成功|交易|返回|完成)/.test(l)) continue;
+        if(/^\d{2}:\d{2}/.test(l)||/^\d{4}[-\/年]/.test(l)) continue;
+        if(l.length>=2&&l.length<=40){merchant=l;break;}
+      }
+    }
+    // Date
+    let date = new Date();
+    for(const l of lines) {
+      const m=l.match(/(\d{4}[-/\u5e74]\d{1,2}[-/\u6708]\d{1,2}\u65e5?\s*\d{1,2}:\d{2})/);
+      if(m){const nd=new Date(m[1].replace(/[年月]/g,'-').replace(/[日]/g,''));if(!isNaN(nd.getTime())){date=nd;break;}}
+    }
+    return { amount, merchant: merchant||'', date, source, category: autoCat(merchant) };
   },
 
   tab(p) {
@@ -250,36 +345,68 @@ const G = {
       <label for="fu" class="upArea">
         <div class="upEmoji">📸</div>
         <div class="upTitle">选择支付截图</div>
-        <div class="upHint">微信/支付宝付款截图，可多选<br>选完后手动确认金额和商户</div>
+        <div class="upHint">微信/支付宝付款截图，可多选</div>
+        <div id="ocrStatus" style="font-size:12px;margin-top:8px"></div>
       </label>
       <button class="ghostBtn" style="width:100%;padding:10px;font-size:15px" onclick="G.draft=[{amount:0,merchant:'',date:new Date(),source:'other',category:'other',img:null}];G.showReview()">
         ✏️ 直接手动输入
       </button>
     `);
+    // Show OCR readiness status
+    const s = document.getElementById('ocrStatus');
+    if(s) s.innerHTML = this.ocrOk
+      ? '<span style="color:#34c759">✅ 自动识别已就绪</span>'
+      : '<span style="color:#ff9500">⏳ 识别模型加载中，稍后自动就绪</span>';
   },
 
-  onFiles(input) {
+  async onFiles(input) {
     const files = input.files;
     if(!files || !files.length) return;
     this.draft = [];
-    let loaded = 0;
-    Array.from(files).forEach((f, i) => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        this.draft[i] = {
-          amount: 0, merchant: '', date: new Date(),
-          source: 'other', category: 'other',
-          img: e.target.result
-        };
-        loaded++;
-        if(loaded === files.length) {
-          this.draft = this.draft.filter(Boolean);
-          this.showReview();
-        }
-      };
-      reader.readAsDataURL(f);
-    });
+
+    // Show loading state
+    this.openSheet(`
+      <div class="sheetHdr">
+        <span></span>
+        <span class="sheetTitle">${this.ocrOk ? '识别中...' : '加载截图...'}</span>
+        <div style="width:44px"></div>
+      </div>
+      <div style="text-align:center;padding:60px 20px">
+        <div style="font-size:48px;margin-bottom:16px">⏳</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">${this.ocrOk ? '正在识别支付信息' : '正在加载截图'}</div>
+        <div style="font-size:13px;color:var(--txt2)">${this.ocrOk ? '提取金额、商户和时间...' : 'OCR初始化中，请稍候'}</div>
+      </div>`);
+
+    const fileArr = Array.from(files);
+    for(let i=0; i<fileArr.length; i++) {
+      const f = fileArr[i];
+      // Read as data URL for preview
+      const dataUrl = await new Promise(r => {
+        const fr = new FileReader();
+        fr.onload = () => r(fr.result);
+        fr.readAsDataURL(f);
+      });
+      let parsed = { amount: 0, merchant: '', date: new Date(), source: 'other', category: 'other' };
+      // Try OCR if available
+      if(this.ocrOk && this.ocrWorker) {
+        try {
+          const img = await new Promise(r => {
+            const im = new Image();
+            im.onload = () => r(im);
+            im.onerror = () => r(null);
+            im.src = dataUrl;
+          });
+          if(img) {
+            const pp = this.preproc(img);
+            const result = await this.ocrWorker.recognize(pp);
+            parsed = this.parseOCR(result.data.text);
+          }
+        } catch(e) { console.warn('OCR error:', e); }
+      }
+      this.draft.push({ ...parsed, img: dataUrl });
+    }
     input.value = '';
+    this.showReview();
   },
 
   showReview() {
