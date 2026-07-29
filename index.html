@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="记账本">
+<meta name="theme-color" content="#f2f2f7">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><rect width='180' height='180' rx='40' fill='%234A90D9'/><text x='90' y='110' text-anchor='middle' font-size='80' fill='white'>💰</text></svg>">
+<title>记账本</title>
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--text:#1c1c1e;--text2:#8e8e93;--text3:#c7c7cc;--blue:#007aff;--red:#ff3b30;--orange:#ff9500;--green:#34c759;--purple:#af52de;--separator:#e5e5ea;--radius:12px;--safe:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#fff;--text2:#98989d;--text3:#48484a;--separator:#38383a}}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow:hidden;height:100dvh}
+.app{display:flex;flex-direction:column;height:100dvh}
+.tab-bar{display:flex;background:var(--card);border-top:.5px solid var(--separator);padding:6px 0 calc(6px + var(--safe));flex-shrink:0}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;color:var(--text2);font-size:10px;font-weight:500;background:none;border:none;cursor:pointer}
+.tab.active{color:var(--blue)}
+.tab svg{width:24px;height:24px}
+.pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:none}
+.page.active{display:block}
+.header{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 16px}
+.header h1{font-size:28px;font-weight:700}
+.header .add-btn{width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;border:none;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card-header{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.amount-large{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;padding:12px 0}
+.amount-large .yen{font-size:28px;font-weight:500;margin-right:4px}
+.amount-zero{color:var(--text3)}
+.cat-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:var(--bg)}
+.cat-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.cat-name{flex:1;font-size:15px}
+.cat-amount{font-size:15px;font-weight:600}
+.cat-pct{font-size:12px;color:var(--text2);width:40px;text-align:right}
+.exp-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:.5px solid var(--separator);cursor:pointer}
+.exp-item:last-child{border-bottom:none}
+.exp-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.exp-info{flex:1;min-width:0}
+.exp-merchant{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.exp-amount{font-size:16px;font-weight:600;color:var(--red);flex-shrink:0}
+.exp-badge{font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(0,122,255,.12);color:var(--blue);display:inline-block;margin-left:6px}
+.date-header{font-size:13px;font-weight:600;color:var(--text2);padding:16px 0 8px}
+.month-sel{display:flex;align-items:center;justify-content:center;gap:16px;padding:8px 0 16px}
+.month-sel .month-label{font-size:17px;font-weight:600;min-width:100px;text-align:center}
+.month-sel button{width:32px;height:32px;border-radius:50%;border:1px solid var(--separator);background:var(--card);color:var(--blue);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.month-sel button:disabled{opacity:.3}
+.summary-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg);border-radius:8px;margin-bottom:8px}
+.summary-bar .label{font-size:12px;color:var(--text2)}
+.summary-bar .value{font-size:20px;font-weight:700;color:var(--red)}
+.period-sel{display:flex;background:var(--card);border-radius:8px;overflow:hidden;margin-bottom:16px}
+.period-btn{flex:1;padding:8px;font-size:13px;font-weight:500;border:none;background:none;color:var(--text2);cursor:pointer}
+.period-btn.active{background:var(--blue);color:#fff}
+.stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.stat-card{background:var(--card);border-radius:10px;padding:12px 8px;text-align:center}
+.stat-card .sv{font-size:18px;font-weight:700}
+.sv.red{color:var(--red)}.sv.blue{color:var(--blue)}.sv.orange{color:var(--orange)}
+.stat-card .sl{font-size:11px;color:var(--text2);margin-top:2px}
+.chart-wrap{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.chart-wrap h3{font-size:15px;font-weight:600;margin-bottom:12px}
+.chart-wrap canvas{max-height:220px}
+.cat-rank{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.cat-rank h3{font-size:15px;font-weight:600;margin-bottom:12px}
+.rank-row{display:flex;align-items:center;gap:10px;padding:8px 0}
+.rank-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.rank-bar-bg{width:60px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;flex-shrink:0}
+.rank-bar-fg{height:100%;border-radius:3px}
+.rank-name{flex:1;font-size:14px}
+.rank-total{font-size:14px;font-weight:600;flex-shrink:0}
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.sheet-overlay.show{opacity:1;pointer-events:auto}
+.sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;padding:16px;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
+.sheet-overlay.show .sheet{transform:translateY(0)}
+.btn{display:block;width:100%;padding:14px;border-radius:12px;border:none;font-size:17px;font-weight:600;cursor:pointer;text-align:center;color:#fff}
+.btn-primary{background:var(--blue)}.btn-primary:disabled{opacity:.4}
+.btn-ghost{background:none;color:var(--blue);font-size:14px;padding:8px;border:none;cursor:pointer}
+.img-preview{width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin:8px 0}
+.input-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:.5px solid var(--separator)}
+.input-row label{font-size:14px;color:var(--text2);min-width:48px}
+.input-row input,.input-row select{flex:1;border:none;background:none;font-size:16px;color:var(--text);outline:none;font-family:inherit}
+.input-row select{-webkit-appearance:none;appearance:none;cursor:pointer}
+.input-row .amount-input{font-size:22px;font-weight:700;color:var(--red)}
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+.empty-text{font-size:15px}
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--card);padding:10px 20px;border-radius:20px;font-size:14px;font-weight:500;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px}
+.spinner{width:36px;height:36px;border:3px solid var(--separator);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:15px;color:var(--text2)}
+.loading-sub{font-size:12px;color:var(--text3)}
+.file-upload-area{border:2px dashed var(--separator);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;margin:16px 0;transition:border-color .2s}
+.file-upload-area:active,.file-upload-area:hover{border-color:var(--blue)}
+.file-upload-area .upload-icon{font-size:48px;margin-bottom:12px}
+.file-upload-area .upload-title{font-size:17px;font-weight:600;margin-bottom:4px}
+.file-upload-area .upload-hint{font-size:13px;color:var(--text2)}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="pages" id="pages">
+<div class="page active" id="page-dashboard">
+<div class="header"><h1>记账本</h1><button class="add-btn" onclick="app.showAddSheet()">+</button></div>
+<div id="dashboard-content"></div>
+</div>
+<div class="page" id="page-list">
+<div class="header"><h1>账单</h1></div>
+<div id="list-content"></div>
+</div>
+<div class="page" id="page-stats">
+<div class="header"><h1>统计</h1></div>
+<div id="stats-content"></div>
+</div>
+</div>
+<div class="tab-bar">
+<button class="tab active" data-tab="dashboard" onclick="app.switchTab('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="15" width="7" height="5" rx="1"/><rect x="14" y="15" width="7" height="5" rx="1"/></svg>今日</button>
+<button class="tab" data-tab="list" onclick="app.switchTab('list')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>账单</button>
+<button class="tab" data-tab="stats" onclick="app.switchTab('stats')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>统计</button>
+</div>
+</div>
+<div class="sheet-overlay" id="add-sheet"><div class="sheet" id="add-sheet-content"></div></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="file-input" accept="image/*" multiple onchange="app.handleFiles(event)" style="display:none">
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+const CATS={
+  food:{name:'餐饮',icon:'🍔',color:'#FF6B6B'},
+  transport:{name:'交通',icon:'🚗',color:'#4ECDC4'},
+  shopping:{name:'购物',icon:'🛍️',color:'#FF8E53'},
+  entertainment:{name:'娱乐',icon:'🎮',color:'#A37EF0'},
+  housing:{name:'居住',icon:'🏠',color:'#45B7D1'},
+  medical:{name:'医疗',icon:'💊',color:'#F06292'},
+  education:{name:'教育',icon:'📚',color:'#81C784'},
+  communication:{name:'通讯',icon:'📱',color:'#64B5F6'},
+  daily:{name:'日用',icon:'🧴',color:'#FFD54F'},
+  other:{name:'其他',icon:'📌',color:'#90A4AE'}
+};
+const SOURCES={wechat:'微信支付',alipay:'支付宝',bankCard:'银行卡',applePay:'Apple Pay',cash:'现金',other:'其他'};
+
+class DB{
+  constructor(){this.db=null}
+  async init(){return new Promise((r,e)=>{const q=indexedDB.open('MTDB3',2);q.onupgradeneeded=v=>{const d=v.target.result;if(!d.objectStoreNames.contains('ex'))d.createObjectStore('ex',{keyPath:'id',autoIncrement:true})};q.onsuccess=v=>{this.db=v.target.result;r()};q.onerror=v=>e(v.target.error)})}
+  async add(o){return new Promise((r,e)=>{const t=this.db.transaction('ex','readwrite').objectStore('ex');const q=t.add(o);q.onsuccess=()=>r(q.result);q.onerror=v=>e(v.target.error)})}
+  async all(){return new Promise((r,e)=>{const t=this.db.transaction('ex','readonly').objectStore('ex');const q=t.getAll();q.onsuccess=()=>r(q.result);q.onerror=v=>e(v.target.error)})}
+  async del(id){return new Promise((r,e)=>{this.db.transaction('ex','readwrite').objectStore('ex').delete(id);r()})}
+}
+
+class Parser{
+  parse(t){const ls=t.split('\n').map(l=>l.trim()).filter(Boolean);return{amount:this.getAmt(ls),merchant:this.getMer(ls),date:this.getDate(ls),source:this.getSrc(ls),raw:t}}
+  getSrc(ls){const j=ls.join(' ');if(j.includes('微信')||j.includes('WeChat'))return'wechat';if(j.includes('支付宝')||j.includes('Alipay')||j.includes('alipay'))return'alipay';if(j.includes('Apple'))return'applePay';if(j.includes('银行')&&(j.includes('消费')||j.includes('支出')||j.includes('扣款')))return'bankCard';return'other'}
+  getAmt(ls){
+    for(const l of ls){
+      for(const p of[/¥\s*(\d+\.?\d{0,2})/,/￥\s*(\d+\.?\d{0,2})/,/(?:实付|付款|支付|消费|扣款|合计|总计|金额)[金额]?[：:\s]*¥?\s*(\d+\.?\d{0,2})/,/-\s*¥\s*(\d+\.?\d{0,2})/,/-(\d+\.\d{2})/]){
+        const m=l.match(p);if(m){const v=parseFloat(m[1]);if(v>0&&v<100000)return v}
+      }
+    }
+    let mx=0;for(const l of ls){const ms=l.match(/(\d+\.\d{2})/g);if(ms)for(const m of ms){const v=parseFloat(m);if(v>0&&v<100000&&v>mx)mx=v}}
+    return mx||null
+  }
+  getMer(ls){
+    for(const l of ls){for(const k of['收款方','商户','商家','店铺','付款给','支付给','对方','交易对方','收款账户']){if(l.includes(k)){const p=l.split(/[：:]/);if(p.length>1){const n=p[p.length-1].trim();if(n.length>=2&&n.length<=40)return n}}}}}
+    for(const l of ls){if(l.startsWith('¥')||l.startsWith('￥'))continue;if(/^(支付|微信|支付宝|付款|成功|交易|返回|完成|确定)/.test(l))continue;if(/^\d{2}:\d{2}/.test(l))continue;if(/^\d{4}[-\/年]/.test(l))continue;if(l.length>=2&&l.length<=40){return l}}
+    return'未知商户'
+  }
+  getDate(ls){
+    let ds=[];for(const l of ls){for(const k of['支付时间','付款时间','交易时间','创建时间','成交时间']){if(l.includes(k)){const p=l.split(/[：:]/);if(p.length>1)ds.push(p[p.length-1].trim())}}
+      const m=l.match(/(\d{4}[-/\u5e74]\d{1,2}[-/\u6708]\d{1,2}\u65e5?\s*\d{1,2}:\d{2}(:\d{2})?)/);if(m)ds.push(m[1])
+    }
+    for(const s of ds){const d=new Date(s.replace(/[年月]/g,'-').replace(/[日]/g,''));if(!isNaN(d.getTime()))return d}
+    return new Date()
+  }
+}
+
+class App{
+  constructor(){this.db=new DB();this.parser=new Parser();this.tab='dashboard';this.listM=new Date();this.statsP='thisMonth';this.worker=null;this.ocrOk=false;this.parsed=[];this.imgs=[];this.charts={};this.exps=[]}
+  async init(){await this.db.init();await this.refresh();this.render();this.initOCR()}
+  async initOCR(){try{this.worker=await Tesseract.createWorker('chi_sim+eng',1);this.ocrOk=true}catch(e){console.warn('OCR:',e)}}
+  async refresh(){this.exps=await this.db.all()}
+  switchTab(t){this.tab=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));document.querySelector(`[data-tab="${t}"]`).classList.add('active');document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(`page-${t}`).classList.add('active');this.render()}
+  render(){this.renderDash();if(this.tab==='list')this.renderList();if(this.tab==='stats')this.renderStats()}
+  toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+  esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+  /* ====== PREPROCESS IMAGE FOR OCR ====== */
+  preprocess(img){
+    const c=document.createElement('canvas');const w=1200;const r=w/img.width;c.width=w;c.height=Math.floor(img.height*r);
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0,c.width,c.height);
+    const d=ctx.getImageData(0,0,c.width,c.height);const p=d.data;
+    for(let i=0;i<p.length;i+=4){const g=p[i]*.299+p[i+1]*.587+p[i+2]*.114;p[i]=p[i+1]=p[i+2]=g}
+    const cf=2.0;for(let i=0;i<p.length;i+=4){for(let j=0;j<3;j++){let v=(p[i+j]-128)*cf+128;p[i+j]=Math.max(0,Math.min(255,v))}}
+    ctx.putImageData(d,0,0);return c
+  }
+
+  /* ====== ADD SHEET ====== */
+  showAddSheet(){this.parsed=[];this.imgs=[];this.renderSheet('select');document.getElementById('add-sheet').classList.add('show')}
+  hideAddSheet(){document.getElementById('add-sheet').classList.remove('show')}
+  renderSheet(s){
+    const c=document.getElementById('add-sheet-content');
+    if(s==='select'){
+      c.innerHTML=`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <button class="btn-ghost" onclick="app.hideAddSheet()">取消</button>
+          <span style="font-weight:600;font-size:17px">添加支出</span>
+          <div style="width:50px"></div>
+        </div>
+        <div class="file-upload-area" onclick="document.getElementById('file-input').click()">
+          <div class="upload-icon">📸</div>
+          <div class="upload-title">点击选择支付截图</div>
+          <div class="upload-hint">支持微信/支付宝付款截图，可多选</div>
+        </div>
+        <div style="text-align:center;padding:8px 0 16px">
+          <button class="btn-ghost" onclick="app.renderSheet('manual')" style="font-size:15px">或手动输入（跳过识别）</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">📱 所有识别在手机本地完成，不上传</div>`;
+    }else if(s==='loading'){
+      c.innerHTML=`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span></span><span style="font-weight:600;font-size:17px">识别中</span><div style="width:50px"></div>
+        </div>
+        <div class="loading"><div class="spinner"></div><div class="loading-text">正在识别支付信息...</div><div class="loading-sub">从截图中提取金额、商户和时间</div></div>`;
+    }else if(s==='manual'){
+      this.parsed=[{amount:0,merchant:'',date:new Date(),source:'other',category:'other'}];
+      this.imgs=[];
+      this.renderReview();
+    }
+  }
+  async handleFiles(ev){
+    const files=ev.target.files;if(!files||!files.length)return;
+    this.imgs=[];this.parsed=[];
+    for(const f of files){this.imgs.push(await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(f)}))}
+    this.renderSheet('loading');
+    for(let i=0;i<files.length;i++){
+      try{
+        let txt='';
+        if(this.ocrOk&&this.worker){
+          const img=await this.loadImg(files[i]);
+          if(img){const pp=this.preprocess(img);const r=await this.worker.recognize(pp);txt=r.data.text}
+        }
+        const p=this.parser.parse(txt);p.category=this.autoCat(p.merchant);p.index=i;this.parsed.push(p);
+      }catch(e){this.parsed.push({amount:0,merchant:'',date:new Date(),source:'other',category:'other',index:i})}
+    }
+    this.renderReview();
+    ev.target.value='';
+  }
+  loadImg(file){return new Promise(r=>{const img=new Image();img.onload=()=>r(img);img.onerror=()=>r(null);img.src=URL.createObjectURL(file)})}
+  renderReview(){
+    const c=document.getElementById('add-sheet-content');
+    const total=this.parsed.reduce((s,i)=>s+(i.amount||0),0);
+    let items='';
+    this.parsed.forEach((item,i)=>{
+      items+=`
+      <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:10px">
+        ${this.imgs[i]?`<img src="${this.imgs[i]}" class="img-preview" style="max-height:180px">`:''}
+        <div class="input-row">
+          <label>💰</label>
+          <input type="number" step="0.01" class="amount-input" value="${item.amount||''}" placeholder="0.00"
+            onchange="app.updateP(${i},'amount',parseFloat(this.value)||0)">
+        </div>
+        <div class="input-row">
+          <label>🏪 商户</label>
+          <input type="text" value="${this.esc(item.merchant||'')}" placeholder="商户名称"
+            onchange="app.updateP(${i},'merchant',this.value)">
+        </div>
+        <div class="input-row">
+          <label>📂 分类</label>
+          <select onchange="app.updateP(${i},'category',this.value)">
+            ${Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${item.category===k?'selected':''}>${v.icon} ${v.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="input-row">
+          <label>🕐</label>
+          <input type="datetime-local" value="${this.fmtDT(item.date)}" onchange="app.updateP(${i},'date',new Date(this.value))">
+        </div>
+        <div style="padding:6px 0;font-size:13px;color:var(--text2)">
+          来源: <span style="background:rgba(0,122,255,.12);color:var(--blue);padding:3px 8px;border-radius:10px">${SOURCES[item.source]||'其他'}</span>
+        </div>
+      </div>`;
+    });
+    c.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <button class="btn-ghost" onclick="app.hideAddSheet()">取消</button>
+        <span style="font-weight:600;font-size:17px">${this.imgs.length?'确认记账':'手动记账'}</span>
+        <button class="btn-ghost" onclick="app.parsed.push({amount:0,merchant:'',date:new Date(),source:'other',category:'other'});app.renderReview()">+添加</button>
+      </div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">${this.parsed.length} 条支出</div>
+      ${items}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+        <span style="color:var(--text2)">合计</span>
+        <span style="font-size:24px;font-weight:700;color:var(--red)">¥${total.toFixed(2)}</span>
+      </div>
+      <button class="btn btn-primary" onclick="app.confirm()" ${this.parsed.every(i=>i.amount>0&&i.merchant)?'':'disabled'}>
+        确认记账 (${this.parsed.length} 笔)
+      </button>`;
+  }
+  updateP(i,f,v){this.parsed[i][f]=v}
+
+  async confirm(){
+    for(const item of this.parsed){
+      const imgIdx=item.index!=null?item.index:this.parsed.indexOf(item);
+      await this.db.add({
+        amount:item.amount,merchant:item.merchant||'未知商户',
+        transactionDate:(item.date||new Date()).toISOString(),
+        category:item.category||'other',source:item.source,
+        screenshot:this.imgs[imgIdx]||null,createdAt:new Date().toISOString()
+      });
+    }
+    await this.refresh();this.hideAddSheet();this.render();this.toast(`已记录 ${this.parsed.length} 笔`);
+  }
+  autoCat(m){const l=(m||'').toLowerCase();
+    for(const[c,ks]of[['food',['餐厅','饭店','美食','外卖','美团','饿了么','星巴克','麦当劳','肯德基','奶茶','咖啡','小吃','火锅','烧烤','面包','食','饭','restaurant','food','kfc','starbucks','食堂']],['transport',['滴滴','地铁','公交','火车','机票','高铁','加油','停车场','高速','taxi','充电','哈啰','青桔','曹操','T3','花小猪']],['shopping',['淘宝','天猫','京东','拼多多','唯品会','闲鱼','苏宁','超市','便利店','商场','百货','shop','mall','store']],['entertainment',['电影','KTV','游戏','视频','音乐','演出','门票','旅游','景点','酒店','密室','剧本杀','steam','netflix','bilibili','抖音']],['housing',['房租','物业','水电','燃气','暖气','宽带','rent','water','electricity']],['medical',['医院','药店','诊所','挂号','药品','体检','hospital','pharmacy']],['education',['书','课程','培训','考试','学习','知识付费','得到','知乎','book','course']],['communication',['话费','流量','中国移动','中国联通','中国电信']],['daily',['理发','洗衣','保洁','维修','快递','家政','日用','杂货']]])
+      for(const k of ks)if(l.includes(k))return c;
+    return'other'
+  }
+  fmtDT(d){if(!d)d=new Date();const dt=new Date(d);const off=dt.getTimezoneOffset();dt.setMinutes(dt.getMinutes()-off);return dt.toISOString().slice(0,16)}
+
+  /* ====== DASHBOARD ====== */
+  renderDash(){
+    const today=new Date();today.setHours(0,0,0,0);
+    const te=this.exps.filter(e=>{const d=new Date(e.transactionDate);d.setHours(0,0,0,0);return d.getTime()===today.getTime()});
+    const total=te.reduce((s,e)=>s+e.amount,0);
+    const cm={};for(const e of te)cm[e.category]=(cm[e.category]||0)+e.amount;
+    let h='';
+    h+=`<div class="card" style="text-align:center"><div class="card-header">当日支出</div><div class="amount-large ${total===0?'amount-zero':''}"><span class="yen">¥</span>${total.toFixed(2)}</div>${te.length>0?`<div style="font-size:13px;color:var(--text2)">共 ${te.length} 笔</div>`:''}</div>`;
+    if(Object.keys(cm).length>0){h+=`<div class="card"><div class="card-header">分类明细</div>`;for(const[cat,amt]of Object.entries(cm)){const c=CATS[cat]||CATS.other;const pct=total>0?(amt/total*100).toFixed(0):0;h+=`<div class="cat-row"><div class="cat-icon" style="background:${c.color}22">${c.icon}</div><span class="cat-name">${c.name}</span><span class="cat-amount">¥${amt.toFixed(2)}</span><span class="cat-pct">${pct}%</span></div>`}h+=`</div>`}
+    if(te.length>0){h+=`<div class="card"><div class="card-header">最近 ${te.length} 笔</div>`;for(const e of te.sort((a,b)=>new Date(b.transactionDate)-new Date(a.transactionDate)))h+=this.expRow(e);h+=`</div>`}
+    else{h+=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">暂无支出</div><div style="font-size:13px;color:var(--text3);margin-top:4px">点击 + 添加记账截图</div></div>`}
+    document.getElementById('dashboard-content').innerHTML=h;
+  }
+  expRow(e){const c=CATS[e.category]||CATS.other;const d=new Date(e.transactionDate);const t=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;const src=SOURCES[e.source]||'';return`<div class="exp-item" onclick="app.showDetail(${e.id})"><div class="exp-icon" style="background:${c.color}22">${c.icon}</div><div class="exp-info"><div class="exp-merchant">${this.esc(e.merchant)}</div><div class="exp-meta">${t}<span class="exp-badge">${src}</span><span style="font-size:10px;color:${c.color};margin-left:4px">${c.name}</span></div></div><div class="exp-amount">-¥${e.amount.toFixed(2)}</div></div>`}
+
+  /* ====== DETAIL ====== */
+  showDetail(id){const e=this.exps.find(x=>x.id===id);if(!e)return;const c=CATS[e.category]||CATS.other;document.getElementById('add-sheet-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <button class="btn-ghost" onclick="app.hideAddSheet()">关闭</button>
+      <span style="font-weight:600;font-size:17px">支出详情</span>
+      <button class="btn-ghost" style="color:var(--red)" onclick="app.delExp(${e.id});app.hideAddSheet()">删除</button>
+    </div>
+    <div style="text-align:center;padding:20px 0">
+      <div style="font-size:13px;color:var(--text2)">支出金额</div>
+      <div style="font-size:40px;font-weight:700;color:var(--red)">-¥${e.amount.toFixed(2)}</div>
+    </div>
+    ${e.screenshot?`<img src="${e.screenshot}" class="img-preview" style="max-height:300px">`:''}
+    <div class="card" style="margin-top:12px">
+      <div class="input-row"><label>商户</label><span style="flex:1;font-size:16px">${this.esc(e.merchant)}</span></div>
+      <div class="input-row"><label>分类</label><span style="flex:1;font-size:16px">${c.icon} ${c.name}</span></div>
+      <div class="input-row"><label>时间</label><span style="flex:1;font-size:16px">${new Date(e.transactionDate).toLocaleString('zh-CN')}</span></div>
+      <div class="input-row"><label>方式</label><span style="flex:1;font-size:16px">${SOURCES[e.source]||''}</span></div>
+    </div>`;document.getElementById('add-sheet').classList.add('show')}
+  async delExp(id){await this.db.del(id);await this.refresh();this.render();this.toast('已删除')}
+
+  /* ====== LIST ====== */
+  renderList(){
+    const ms=new Date(this.listM.getFullYear(),this.listM.getMonth(),1);const me=new Date(this.listM.getFullYear(),this.listM.getMonth()+1,0,23,59,59);
+    const mex=this.exps.filter(e=>{const d=new Date(e.transactionDate);return d>=ms&&d<=me}).sort((a,b)=>new Date(b.transactionDate)-new Date(a.transactionDate));
+    const total=mex.reduce((s,e)=>s+e.amount,0);const isCur=this.listM.getMonth()===new Date().getMonth()&&this.listM.getFullYear()===new Date().getFullYear();
+    let h=`<div class="month-sel"><button onclick="app.shiftLM(-1)">◀</button><span class="month-label">${isCur?'本月':this.listM.getFullYear()+'年'+(this.listM.getMonth()+1)+'月'}</span><button onclick="app.shiftLM(1)" ${isCur?'disabled':''}>▶</button></div>
+      <div class="summary-bar"><div><span class="label">本月支出</span><br><span class="value">¥${total.toFixed(2)}</span></div><div style="text-align:right"><span class="label">共 ${mex.length} 笔</span></div></div>`;
+    if(!mex.length){h+=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">暂无账单</div></div>`}
+    else{const gr={};for(const e of mex){const k=new Date(e.transactionDate).toLocaleDateString('zh-CN',{month:'long',day:'numeric'});if(!gr[k])gr[k]=[];gr[k].push(e)}h+=`<div class="card">`;for(const[dk,exs]of Object.entries(gr)){h+=`<div class="date-header">${dk}</div>`;for(const e of exs)h+=this.expRow(e)}h+=`</div>`}
+    document.getElementById('list-content').innerHTML=h}
+  shiftLM(d){const m=new Date(this.listM);m.setMonth(m.getMonth()+d);if(m<=new Date()){this.listM=m;this.renderList()}}
+
+  /* ====== STATS ====== */
+  renderStats(){
+    const now=new Date();let sd;const lb={thisMonth:'本月',lastMonth:'上月',last7Days:'近7天',last30Days:'近30天'};
+    let filtered;
+    switch(this.statsP){
+      case'lastMonth':{sd=new Date(now.getFullYear(),now.getMonth()-1,1);const el=new Date(now.getFullYear(),now.getMonth(),0,23,59,59);filtered=this.exps.filter(e=>{const d=new Date(e.transactionDate);return d>=sd&&d<=el});break}
+      case'last7Days':sd=new Date(now);sd.setDate(sd.getDate()-6);sd.setHours(0,0,0,0);filtered=this.exps.filter(e=>new Date(e.transactionDate)>=sd);break
+      case'last30Days':sd=new Date(now);sd.setDate(sd.getDate()-29);sd.setHours(0,0,0,0);filtered=this.exps.filter(e=>new Date(e.transactionDate)>=sd);break
+      default:sd=new Date(now.getFullYear(),now.getMonth(),1);filtered=this.exps.filter(e=>new Date(e.transactionDate)>=sd)
+    }
+    const total=filtered.reduce((s,e)=>s+e.amount,0);const cnt=filtered.length;const avg=cnt>0?total/cnt:0;
+    let h=`<div class="period-sel">`;for(const[k,v]of Object.entries(lb))h+=`<button class="period-btn ${this.statsP===k?'active':''}" onclick="app.statsP='${k}';app.renderStats()">${v}</button>`;h+=`</div>`;
+    h+=`<div class="stat-cards"><div class="stat-card"><div class="sv red">¥${total.toFixed(2)}</div><div class="sl">总支出</div></div><div class="stat-card"><div class="sv blue">${cnt}</div><div class="sl">笔数</div></div><div class="stat-card"><div class="sv orange">¥${avg.toFixed(2)}</div><div class="sl">笔均</div></div></div>`;
+    const cm={};for(const e of filtered)cm[e.category]=(cm[e.category]||0)+e.amount;
+    const cl=Object.entries(cm).map(([k,v])=>({cat:k,name:CATS[k]?.name||'其他',icon:CATS[k]?.icon||'📌',color:CATS[k]?.color||'#90A4AE',total:v})).sort((a,b)=>b.total-a.total);
+    if(cl.length>0){h+=`<div class="chart-wrap"><h3>支出分类</h3><canvas id="pieChart" style="max-height:200px"></canvas></div><div class="cat-rank"><h3>分类排行</h3>`;cl.forEach((it,i)=>{const pct=total>0?(it.total/total*100):0;h+=`<div class="rank-row"><div class="rank-num" style="background:${it.color}">${i+1}</div><span>${it.icon}</span><span class="rank-name">${it.name}</span><span class="rank-total">¥${it.total.toFixed(2)}</span><div class="rank-bar-bg"><div class="rank-bar-fg" style="width:${pct}%;background:${it.color}"></div></div></div>`});h+=`</div>`}
+    document.getElementById('stats-content').innerHTML=h;
+    setTimeout(()=>{this.destroyCharts();if(cl.length>0)this.renderPie(cl);this.renderBar(filtered,sd)},150)
+  }
+  destroyCharts(){Object.values(this.charts).forEach(c=>c.destroy());this.charts={}}
+  renderPie(data){
+    const ctx=document.getElementById('pieChart');if(!ctx)return;const dk=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    this.charts.pie=new Chart(ctx,{type:'doughnut',data:{labels:data.map(d=>d.name),datasets:[{data:data.map(d=>d.total),backgroundColor:data.map(d=>d.color),borderWidth:2,borderColor:dk?'#1c1c1e':'#fff'}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}})
+  }
+  renderBar(exps,sd){
+    const days=[];const now=new Date();const s=new Date(sd);s.setHours(0,0,0,0);
+    for(let d=new Date(s);d<=now;d.setDate(d.getDate()+1)){const k=d.toISOString().slice(0,10);const de=exps.filter(e=>new Date(e.transactionDate).toISOString().slice(0,10)===k);days.push({label:`${d.getMonth()+1}/${d.getDate()}`,total:de.reduce((s,e)=>s+e.amount,0)})}
+    if(!days.length)return;
+    let bc=document.getElementById('barChartContainer');if(!bc){bc=document.createElement('div');bc.className='chart-wrap';bc.id='barChartContainer';bc.innerHTML='<h3>每日趋势</h3><canvas id="barChart" style="max-height:180px"></canvas>';const sc=document.querySelector('#stats-content .stat-cards');if(sc)sc.after(bc);else document.getElementById('stats-content').appendChild(bc)}
+    const ctx=document.getElementById('barChart');if(!ctx)return;
+    this.charts.bar=new Chart(ctx,{type:'bar',data:{labels:days.map(d=>d.label),datasets:[{data:days.map(d=>d.total),backgroundColor:'#4ECDC4',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}})
+  }
+}
+
+const app=new App();app.init();
+window.app=app;
+</script>
+</body>
+</html>
