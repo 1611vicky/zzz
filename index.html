@@ -99,7 +99,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg
 .file-upload-area .upload-icon{font-size:48px;margin-bottom:12px}
 .file-upload-area .upload-title{font-size:17px;font-weight:600;margin-bottom:4px}
 .file-upload-area .upload-hint{font-size:13px;color:var(--text2)}
-input[type=file]{display:none}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0)}
 </style>
 </head>
 <body>
@@ -126,7 +126,7 @@ input[type=file]{display:none}
 </div>
 <div class="sheet-overlay" id="add-sheet"><div class="sheet" id="add-sheet-content"></div></div>
 <div class="toast" id="toast"></div>
-<input type="file" id="file-input" accept="image/*" multiple onchange="app.handleFiles(event)" style="display:none">
+<input type="file" id="file-input" accept="image/*" multiple onchange="app.handleFiles(event)">
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
@@ -211,11 +211,11 @@ class App{
           <span style="font-weight:600;font-size:17px">添加支出</span>
           <div style="width:50px"></div>
         </div>
-        <div class="file-upload-area" onclick="document.getElementById('file-input').click()">
+        <label for="file-input" class="file-upload-area" style="display:block">
           <div class="upload-icon">📸</div>
           <div class="upload-title">点击选择支付截图</div>
           <div class="upload-hint">支持微信/支付宝付款截图，可多选</div>
-        </div>
+        </label>
         <div style="text-align:center;padding:8px 0 16px">
           <button class="btn-ghost" onclick="app.renderSheet('manual')" style="font-size:15px">或手动输入（跳过识别）</button>
         </div>
@@ -402,7 +402,8 @@ class App{
   }
 }
 
-const app=new App();app.init();
+const app=new App();
+try{app.init()}catch(e){console.error(e);app.render()}
 window.app=app;
 </script>
 </body>
